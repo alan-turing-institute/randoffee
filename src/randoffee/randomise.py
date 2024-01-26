@@ -7,7 +7,9 @@ from .main import Grouping, Permutation
 
 def randomise(participants: list[str],
               group_size: int = 4,
-              algorithm: str = 'full_random'
+              algorithm: str = 'full_random',
+              previous_permutation: Permutation | None = None,
+              max_tries: int = 100000,
               ) -> "Permutation":
     """Divide participants into groups.
 
@@ -24,12 +26,25 @@ def randomise(participants: list[str],
         larger than `group_size`. Defaults to 4.
 
     algorithm : str, optional
-        The algorithm to use for randomising the groups. The default is
-        'full_random', which uses a full randomisation. There are no other
-        valid values for this at the moment.
+        The algorithm to use for randomising the groups.
+
+        'full_random' : Completely randomly permute participants.
+
+        'full_random_until_no_match' : Run 'full_random' until the similarity
+            score with a previous permutation is 0. The 'previous_permutation'
+            and 'max_tries' parameters must be given.
+
+    previous_permutation : Permutation, optional
+        The previous permutation. Only used if `algorithm` is
+        'full_random_until_no_match'. Defaults to None.
+
+    max_tries : int, optional
+        The maximum number of times to try 'full_random_until_no_match' before
+        giving up. Defaults to 100000.
     """
     if algorithm == 'full_random':
-        random.shuffle(list(participants))   # make a copy
+        participants = list(participants)   # make a copy
+        random.shuffle(participants)
 
         # Let N = qn + r, where N = number of participants, n = group size, q =
         # number of groups, and r = number of participants left over.
@@ -52,6 +67,22 @@ def randomise(participants: list[str],
                 groupings[ind].others.add(element)
 
         return Permutation(date=datetime.date.today(), groups=groupings)
+
+    elif algorithm == 'full_random_until_no_match':
+        if previous_permutation is None:
+            raise ValueError("No previous permutation given")
+        if max_tries < 1:
+            raise ValueError(f"Invalid max_tries '{max_tries}'")
+
+        count = 0
+        while count < max_tries:
+            count += 1
+            perm = randomise(participants, group_size, algorithm='full_random')
+            if perm.similarity_to(previous_permutation) == 0:
+                print(f"Found permutation with similarity 0 after {count} tries")
+                return perm
+        raise ValueError(f"Could not find permutation with similarity"
+                         f" 0 after {count} tries")
 
     else:
         raise ValueError(f"Invalid algorithm '{algorithm}'")

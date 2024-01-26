@@ -31,9 +31,10 @@ the macOS Mail.app).
 
 import argparse
 import subprocess
-import sys
+from pathlib import Path
 
 from .randomise import randomise
+from .main import Permutation
 
 
 HEADER = "<br />".join(
@@ -189,13 +190,35 @@ def copy_html_to_clipboard(html_text: str) -> None:
         ) from None
 
 
+def get_most_recent_permutation(prev_dir: str | Path = "previous") -> Permutation:
+    """Get the most recent permutation from a directory of previous permutations"""
+    ALL_PERMS = []
+    prev_dir = Path(prev_dir)
+    for file in prev_dir.iterdir():
+        if file.is_file() and file.suffix == '.json':
+            ALL_PERMS.append(Permutation.from_json_file(file))
+    if len(ALL_PERMS) == 0:
+        raise FileNotFoundError(f"No previous permutations found"
+                                f" in '{prev_dir.resolve()}'")
+    return max(ALL_PERMS, key=lambda p: p.date)
+
 
 if __name__ == "__main__":
     args = parse_args()
     participants = determine_participants(include_file="include",
                                           exclude_file="exclude",
                                           args_excluded_emails=args.exclude)
-    permutation = randomise([p.name for p in participants])
+
+    most_recent_perm = get_most_recent_permutation(prev_dir="previous")
+    permutation = randomise([p.email for p in participants],
+                            algorithm="full_random_until_no_match",
+                            previous_permutation=most_recent_perm,
+                            max_tries=100000)
+
+    # Print similarity to previous coffee
+    # print(f"\n--------- SIMILARITY TO PREVIOUS COFFEE ON {most_recent_perm.date} ---------")
+    # print(permutation.similarity_to(most_recent_perm))
+    # print()
 
     # Generate email text
     email_text = HEADER
