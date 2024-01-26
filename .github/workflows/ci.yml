@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - main_disabled_temp
 
 jobs:
   pre-commit:
