@@ -142,6 +142,13 @@ def determine_participants(include_file,
     return participants
 
 
+def get_name_from_email(email: str, participants: list[Person]):
+    for p in participants:
+        if p.email == email:
+            return p.name
+    raise ValueError(f"Email {email} not found in participants")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate random groups for coffee chats"
@@ -210,21 +217,31 @@ if __name__ == "__main__":
                                           args_excluded_emails=args.exclude)
 
     most_recent_perm = get_most_recent_permutation(prev_dir="previous")
-    permutation = randomise([p.email for p in participants],
-                            algorithm="full_random_until_no_match",
-                            previous_permutation=most_recent_perm,
-                            max_tries=100000)
 
-    # Print similarity to previous coffee
-    # print(f"\n--------- SIMILARITY TO PREVIOUS COFFEE ON {most_recent_perm.date} ---------")
-    # print(permutation.similarity_to(most_recent_perm))
-    # print()
+    ALGORITHM = 'full_random'
+    if ALGORITHM == 'full_random':
+        # Perform full randomisation and check similarity to previous permutation
+        permutation = randomise([p.email for p in participants],
+                                algorithm="full_random")
+        print(f"\n--------- SIMILARITY TO PREVIOUS COFFEE ON {most_recent_perm.date} ---------")
+        print(permutation.similarity_to(most_recent_perm))
+        print()
+    elif ALGORITHM == 'full_random_until_no_match':
+        permutation = randomise([p.email for p in participants],
+                                algorithm="full_random_until_no_match",
+                                previous_permutation=most_recent_perm,
+                                max_tries=100000)
+    else:
+        raise ValueError(f"Algorithm '{ALGORITHM}' not recognised")
 
     # Generate email text
     email_text = HEADER
     email_text += "<br />"
     for i, group in enumerate(permutation.groups, start=1):
-        email_text += f"Group {i}: <b>{group.leader}</b> | {' | '.join(group.others)}<br />"
+        email_text += (f"Group {i}:"
+                       f" <b>{get_name_from_email(group.leader, participants)}</b>"
+                       f" | "
+                       f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}<br />")
     email_text += FOOTER
 
     # Copy email text to clipboard
