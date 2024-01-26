@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier
+_commit: f1e40e7
+_src_path: gh:alan-turing-institute/python-project-template
+backend: setuptools
+email: hut23@turing.ac.uk
+full_name: Hut23
+license: MIT
+org: alan-turing-institute
+project_name: randoffee
+project_short_description: Banoffee pie, but scrambled
+python_name: randoffee
+python_version_range: '>=3.8'
+typing: strict
+url: https://github.com/alan-turing-institute/randoffee

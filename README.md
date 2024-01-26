@@ -1,0 +1,35 @@
+# randoffee
+
+Library to handle REG random coffees.
+
+More functionality to follow.
+
+Example usage (to investigate how similar previous coffees have been) follows.
+The `COFFEE_DIR` variable must point to the `Coffee` folder in the REG SharePoint folder (in my case, I've symlinked it to `~/coffee`).
+
+
+```python
+from pathlib import Path
+
+from randoffee import Permutation
+
+
+## Read in all previous permutations
+
+ALL_PERMS = []
+COFFEE_DIR = Path.home() / 'coffee'
+
+for file in (COFFEE_DIR / 'previous').iterdir():
+    if file.is_file() and file.suffix == '.json':
+        ALL_PERMS.append(Permutation.from_json_file(file))
+
+ALL_PERMS = sorted(ALL_PERMS, key=lambda x: x.date)
+
+
+## Calculate similarity between all consecutive permutations
+
+for (perm1, perm2) in zip(ALL_PERMS, ALL_PERMS[1:]):
+    print(f'-------- {perm1.date} x {perm2.date} --------')
+    print(perm1.similarity_to(perm2))
+    print('\n\n')
+```
