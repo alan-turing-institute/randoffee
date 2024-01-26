@@ -1,189 +1,57 @@
-"""
-randomise.py
-------------
-To use:
-    python randomise.py
-
-This script requires a list of names and emails in the file "include". Each
-line of this file should be a comma-separated list of name and email, e.g.
-
-    Grace Hopper,ghopper@turing.ac.uk
-
-To explicitly remove somebody from the list, add them to the file "exclude",
-which has the same format. The exclude file overrides the include file, so if
-somebody is in both, they will be excluded.
-
-For a more temporary exclusion (e.g. for people on leave), you can pass the
-email address as an argument to the script, e.g.
-
-    python randomise.py -e ghopper@turing.ac.uk
-
-The script will generate random groups of 4 or 5 people, along with the
-complete text for an email. This text is automatically copied to the clipboard
-in RTF format, and can then be pasted into the desktop version of Outlook (or
-the macOS Mail.app).
-"""
-
-import argparse
 import random
-import subprocess
-import sys
+import datetime
 
-HEADER = "<br />".join(
+
+from .main import Grouping, Permutation
+
+
+def randomise(participants: list[str],
+              group_size: int = 4,
+              algorithm: str = 'full_random'
+              ) -> "Permutation":
+    """Divide participants into groups.
+
+    Parameters
+    ----------
+    participants : list[Person]
+        List of participants to be grouped. The entries should be their full
+        names.
+
+    group_size : int, optional
+        The size of each group. As many groups are made with size `group_size`
+        as possible, but if `group_size` does not cleanly divide
+        `len(participants)`, then there will be some groups with size one
+        larger than `group_size`. Defaults to 4.
+
+    algorithm : str, optional
+        The algorithm to use for randomising the groups. The default is
+        'full_random', which uses a full randomisation. There are no other
+        valid values for this at the moment.
     """
-Hello REG and ARC,
-Here are the groups for our next randomised coffee chats.
-""".split(
-        "\n"
-    )
-)
+    if algorithm == 'full_random':
+        random.shuffle(list(participants))   # make a copy
 
-FOOTER = "<br />".join(
-    """
-The first person in the group is responsible for making sure the meeting gets scheduled, but anyone in the group is free to take initiative to schedule it. The meeting should take place this week or next, after that we'll start a new round with new groups. Please schedule a 30 minute call, and feel free to fill it with chatter about absolutely anything, including, but not limited to, snakes, shades of pink, brick architecture, or 17th century wars.
+        # Let N = qn + r, where N = number of participants, n = group size, q =
+        # number of groups, and r = number of participants left over.
 
-For more information about the random coffees, including how to opt out, see Evelina's original email, which we paste below. If you've already opted out, please ignore this email.
+        # Calculate q and r
+        q, r = divmod(len(participants), group_size)
 
-Kind regards,
-Jon and Markus
+        # Generate the first groups from the first qn people
+        groupings = [
+            Grouping(leader=participants[group_size * i],
+                     others=participants[(group_size * i) + 1 : group_size * (i + 1)])
+            for i in range(q)
+        ]
 
-Description of the scheme:
+        # Add the last r people to r randomly chosen groups
+        if r > 0:
+            excess_participants = participants[q * group_size :]
+            oversize_group_inds = random.sample(range(q), r)
+            for ind, element in zip(oversize_group_inds, excess_participants):
+                groupings[ind].others.add(element)
 
-> As part of our long-term hybrid working strategy, we would like to trial new Hut23 randomised coffees. 
-> 
-> The goal is to create a space for conversations across the team, not limited to people who already work together or who come to the office regularly. The Hut23 randomised coffees will differ from the Turing-wide scheme:
-> 
-> - The scheme will be limited to REG and ARC.
-> - We will be randomly split into groups of 4. This is a group size that still enables a reasonable conversation over Zoom. It also enables the meeting to happen even if someone is not available.
-> - Every 2 weeks, you will receive an email with your group assignment. 
-> - A designated person within each group will be responsible for scheduling the coffee. They can also delegate the responsibility to someone else in the group. 
-> - The recommended process is to create a slack conversation with your group and coordinate there. 
-> - When scheduling, be mindful of the team members that come to the office and book a meeting room if necessary.
-> 
-> Thank you to Markus and Jon who will be running the scheme, ie. generating the groups and sending out emails. After several rounds, we will follow up with a survey to assess how the randomised coffees are working in practice.
-> 
-> If you would prefer to opt out, please fill in this form: https://forms.office.com/e/mN3hHns3Qf.
-""".split(
-        "\n"
-    )
-)
+        return Permutation(date=datetime.date.today(), groups=groupings)
 
-
-def random_groups(elements, group_size):
-    """Divide the elements into random groups of size N."""
-    random.shuffle(elements)
-    groups = [elements[i : i + group_size] for i in range(0, len(elements), group_size)]
-    last_group = groups[-1]
-    last_group_size = len(last_group)
-    if last_group_size < group_size:
-        oversize_group_inds = random.sample(range(len(groups) - 1), last_group_size)
-        for ind, element in zip(oversize_group_inds, last_group):
-            groups[ind].append(element)
-        groups = groups[:-1]
-    return groups
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Generate random groups for coffee chats"
-    )
-    parser.add_argument(
-        "-e",
-        "--exclude",
-        nargs="+",
-        default=[],
-        help="Emails to exclude (can be space or semicolon separated)",
-    )
-
-    args = parser.parse_args()
-    # Split on semicolons (if any)
-    exclude = []
-    for em in args.exclude:
-        exclude.extend(em.split(";"))
-    args.exclude = [em.strip() for em in exclude]
-    return args
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    GROUP_SIZE = 4
-
-    # Generate groups
-    with open("include", "r", encoding="UTF-8") as f:
-        lines = f.read().splitlines()
-        include_splits = [line.split(",") for line in lines]
-
-    with open("exclude", "r", encoding="UTF-8") as f:
-        lines = f.read().splitlines()
-        exclude_emails = [line.split(",")[1] for line in lines]
-
-    def is_email_included(email):
-        return email not in args.exclude and email not in exclude_emails
-
-    names_and_emails = {
-        split[0]: split[1] for split in include_splits if is_email_included(split[1])
-    }
-    excluded_names_and_emails = {
-        split[0]: split[1]
-        for split in include_splits
-        if not is_email_included(split[1])
-    }
-    groups = random_groups(list(names_and_emails.keys()), GROUP_SIZE)
-
-    # Generate email text
-    email_text = HEADER
-    email_text += "<br />"
-    for i, group in enumerate(groups, start=1):
-        group[0] = f"<b>{group[0]}</b>"
-        email_text += f"Group {i}: {' | '.join(group)}<br />"
-    email_text += FOOTER
-
-    # Copy email text to system rich text clipboard
-    try:
-        proc1 = subprocess.Popen(
-            [
-                "textutil",
-                "-convert",
-                "rtf",
-                "-stdin",
-                "-stdout",
-                "-inputencoding",
-                "UTF-8",
-                "-format",
-                "html",
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
-        proc2 = subprocess.Popen(["pbcopy", "-Prefer", "rtf"], stdin=proc1.stdout)
-        proc1.communicate(input=email_text.encode("UTF-8"))
-        proc2.wait()
-    except FileNotFoundError:
-        print(
-            "Error: textutil or pbcopy not found. For automatic copying to"
-            " clipboard, please run on Mac."
-        )
-        sys.exit(1)
     else:
-        print(
-            "Email text copied to clipboard. You should be able to paste"
-            " it into any desktop email client (browser doesn't work).\nSend"
-            " the email to the following people:"
-        )
-        print()
-
-    # Print emails to send to
-    print("; ".join(names_and_emails.values()))
-
-    # Print excluded emails
-    if excluded_names_and_emails:
-        print()
-        print(
-            "The following people in the include list have been excluded"
-            " from this round:"
-        )
-        for name, email in excluded_names_and_emails.items():
-            print(f" - {name} <{email}>")
-    else:
-        print()
-        print("Nobody on the include list was excluded from this round.")
+        raise ValueError(f"Invalid algorithm '{algorithm}'")
