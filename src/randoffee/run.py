@@ -33,13 +33,19 @@ import argparse
 import subprocess
 from pathlib import Path
 
+from tqdm import tqdm
+
 from .randomise import randomise
 from .main import Permutation
+
+def announce(s):
+    print(f"✨ \033[1m{s}\033[0m")
 
 
 HEADER = "<br />".join(
     """
 Hello REG and ARC,
+
 Here are the groups for our next randomised coffee chats.
 """.split(
         "\n"
@@ -53,51 +59,14 @@ scheduled, but anyone in the group is free to take initiative to schedule it.
 Please schedule a 30 minute call, and feel free to fill it with chatter about
 absolutely anything, including, but not limited to, the following topics:
 
- - What you're working on
- - What you're struggling with
- - What you're excited about
- - What you're reading
- - What you're watching
- - What you're listening to
- - What you're eating
- - What you're drinking
- - What you're doing for fun
- - What you're doing for work
- - What you're doing for exercise
- - What you're doing for relaxation
- - What you're doing for education
- - What you're doing for entertainment
- - What you're doing for self-improvement
- - What you're doing for self-care
- - What you're doing for others
- - What you're doing for the world
- - What you're doing for the environment
- - What you're doing for the community
- - What you're doing for your family
- - What you're doing for your friends
- - What you're doing for your colleagues
- - What you're doing for your neighbours
- - What you're doing for your country
- - What you're doing for your planet
- - What you're doing for your universe
- - What you're doing for your multiverse
- - What you're doing for your metaverse
- - What you're doing for your megaverse
- - What you're doing for your xenoverse
- - What you're doing for your omniverse
- - What you're doing for your hyperverse
- - What you're doing for your ultraverse
- - What you're doing for your archverse
- - What you're doing for your universe cluster
- - What you're doing for your universe cluster complex
- - What you're doing for your universe cluster complex supercluster
- - What you're doing for your universe cluster complex supercluster
- - What you're doing for your universe cluster complex supercluster
- - What you're doing for your universe cluster complex supercluster
+ - Birds in classic literature
+ - Which type of cheese the Moon is made of
+ - Renters' rights in the United Kingdom
+ - The most unusual pasta shape you've seen
 
-(At this point, Copilot went into a loop, so we stopped it.)
-
-The opt-out form is still here: https://forms.office.com/e/mN3hHns3Qf and you are welcome to let one of us know if you'd like to take a temporary break (zero judgment).
+The opt-out form is still here: https://forms.office.com/e/mN3hHns3Qf and you
+are welcome to let one of us know if you'd like to take a temporary break (zero
+judgment). Just drop us a Slack message or an email.
 
 Kind regards,
 Jon and Markus
@@ -197,17 +166,18 @@ def copy_html_to_clipboard(html_text: str) -> None:
         ) from None
 
 
-def get_most_recent_permutation(prev_dir: str | Path = "previous") -> Permutation:
-    """Get the most recent permutation from a directory of previous permutations"""
+def get_most_recent_permutations(prev_dir: str | Path = "previous") -> list[Permutation]:
+    """Get the most recent permutation from a directory of previous
+    permutations. Makes sure to ignore .latest.json files."""
     ALL_PERMS = []
     prev_dir = Path(prev_dir)
     for file in prev_dir.iterdir():
-        if file.is_file() and file.suffix == '.json':
+        if file.is_file() and file.suffix == '.json' and file.name != '.latest.json':
             ALL_PERMS.append(Permutation.from_json_file(file))
     if len(ALL_PERMS) == 0:
         raise FileNotFoundError(f"No previous permutations found"
                                 f" in '{prev_dir.resolve()}'")
-    return max(ALL_PERMS, key=lambda p: p.date)
+    return sorted(ALL_PERMS, key=lambda p: p.date, reverse=True)
 
 
 if __name__ == "__main__":
@@ -216,21 +186,76 @@ if __name__ == "__main__":
                                           exclude_file="exclude",
                                           args_excluded_emails=args.exclude)
 
-    most_recent_perm = get_most_recent_permutation(prev_dir="previous")
+    most_recent_perms = get_most_recent_permutations(prev_dir="previous")
 
-    ALGORITHM = 'full_random'
-    if ALGORITHM == 'full_random':
-        # Perform full randomisation and check similarity to previous permutation
+    ALGORITHM = 'random_pick_best'
+
+    if ALGORITHM == 'random_once':
+        announce("Generating a single random permutation.")
+
+        # Perform full randomisation one time and check similarity to previous
+        # permutation
         permutation = randomise([p.email for p in participants],
-                                algorithm="full_random")
-        print(f"\n--------- SIMILARITY TO PREVIOUS COFFEE ON {most_recent_perm.date} ---------")
+                                algorithm=ALGORITHM)
+        most_recent_perm = most_recent_perms[0]
+        announce(f"Similarity to previous coffee on {most_recent_perm.date}")
         print(permutation.similarity_to(most_recent_perm))
+
+    elif ALGORITHM == 'random_pick_best':
+        # 1. Perform full randomisation 100000 times.
+        # 2. Filter for those which have 0 similarity to the immediately
+        #    preceding permutation (i.e. no repeated people from the last
+        #    round).
+        # 3. Pick the one with the lowest weighted similarity to the preceding
+        #    4 permutations. The weighted similarity is defined as
+        #
+        #       weighted_similarity = (  1.0 * similarity_1
+        #                              + 0.8 * similarity_2
+        #                              + 0.5 * similarity_3
+        #                              + 0.2 * similarity_4) / 2.5
+        #
+        #    where similarity_1 is the similarity to the most recent permutation,
+        #    similarity_2 is the similarity to the second most recent, etc.
+        #    Note that by virtue of the filtering in step 2, similarity_1 will
+        #    always be 0.
+        n_attempts = 10000
+        perfect_perms = []
+
+        announce(f"Generating {n_attempts} random permutations and picking the best.")
         print()
-    elif ALGORITHM == 'full_random_until_no_match':
-        permutation = randomise([p.email for p in participants],
-                                algorithm="full_random_until_no_match",
-                                previous_permutation=most_recent_perm,
-                                max_tries=100000)
+
+        for _ in tqdm(range(n_attempts)):
+            trial_permutation = randomise([p.email for p in participants],
+                                          algorithm='full_random')
+            trial_similarity = trial_permutation.similarity_to(most_recent_perms[0]).per_person_score
+            if trial_similarity == 0:
+                perfect_perms.append(trial_permutation)
+
+        print()
+
+        if len(perfect_perms) == 0:
+            raise ValueError(f"No permutations with similarity to previous"
+                             f" round ({most_recent_perms[0].date}) found")
+
+        # Calculate weighted similarity for each permutation
+        def weighted_similarity(perm):
+            return (1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
+                    + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
+                    + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
+                    + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score) / 2.5
+
+        perfect_perms.sort(key=weighted_similarity)
+        permutation = perfect_perms[0]
+
+        for prev_perm in most_recent_perms[:4]:
+            announce(f"Similarity to previous coffee on {prev_perm.date}")
+            print(permutation.similarity_to(prev_perm))
+            print()
+
+        announce(f"Weighted similarity to previous 4 permutations")
+        print(weighted_similarity(permutation))
+        print()
+
     else:
         raise ValueError(f"Algorithm '{ALGORITHM}' not recognised")
 
@@ -248,10 +273,29 @@ if __name__ == "__main__":
     copy_html_to_clipboard(email_text)
 
     # Print emails to send to
-    print(
-        "Email text copied to clipboard. You should be able to paste"
-        " it into any desktop email client (browser doesn't work).\nSend"
-        " the email to the following people:"
-    )
+    announce("The email text has been copied to your system clipboard."
+               " You should be able to paste it into\n   any desktop email"
+               " client (browser doesn't work).")
     print()
+    announce("Send the email to the following people:")
     print("; ".join(sorted(p.email for p in participants)))
+    print()
+
+    # Prompt user to save permutation to disk
+    announce("Do you want to save this permutation as a file with a date?")
+    save_perm = input("   (y/n) > ")
+    print()
+    
+    # Always save it to .latest.json, but if user said yes, then additionally
+    # save it to a file with the date as the name
+    save_perm_dir = Path("previous")
+    save_perm_dir.mkdir(exist_ok=True)
+    save_perm_file = save_perm_dir / ".latest.json"
+    permutation.to_json_file(save_perm_file)
+    if save_perm.lower() == 'y':
+        save_perm_file = save_perm_dir / f"{permutation.date}.json"
+        permutation.to_json_file(save_perm_file)
+        announce(f"Permutation saved to '{save_perm_file}'.")
+    else:
+        announce(f"Permutation not saved. (You can still find it at"
+                 f" '{save_perm_file}' should you need it.)")

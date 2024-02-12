@@ -28,7 +28,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-dependencies = []
+dependencies = [
+    "numpy",
+    "tqdm",
+]
 
 [project.optional-dependencies]
 test = [

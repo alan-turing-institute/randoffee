@@ -2,6 +2,45 @@
 
 Library to handle REG random coffees.
 
+--------
+
+## Workflow for generating random coffees
+
+**TODO**: describe the algorithm.
+Until I bother writing this up, you can find it in the comments scattered around `run.py`.
+
+1. Install the library.
+
+       git clone git@github.com:alan-turing-institute/randoffee.git
+       cd randoffee
+       python -m pip install -e .
+
+2. `cd` to the `Coffee` folder in the REG SharePoint.
+
+3. Run
+
+       python -m randoffee.run
+
+4. The script will put the email text into your system clipboard, and prompt you to save it as a file with a date.
+
+   Before answering yes or no, you should copy-paste the text into a desktop email client and check that the groups are sensible.
+   (In practice we have never intervened with any of the groupings.)
+
+   If you are satisfied with these groupings, then you can save the permutation to disk.
+   It will be saved in `previous/YYYY-MM-DD.json`.
+   This file will be used for future coffee rounds (the script will make sure to generate groups that are sufficiently different from it).
+
+   If you accidentally hit no, the permutation will still be saved as `previous/.latest.json`.
+   You can just `mv` this to the desired date if you realise that you do want those groups.
+
+5. Change the random topics in the email to anything you like.
+
+6. Send the email to the list of email addresses the script gives you.
+
+-------
+
+## Usage as library
+
 More functionality to follow.
 
 Example usage (to investigate how similar previous coffees have been) follows.

@@ -113,12 +113,19 @@ class Permutation:
         return "\n".join(s)
 
 
-    def similarity_to(self, other: 'Permutation') -> 'PermutationSimilarityStats':
+    def similarity_to(self,
+                      other: 'Permutation',
+                      weighting='linear') -> 'PermutationSimilarityStats':
         """
         Calculates the similarity between this permutation and another.
 
-        Returns a PermutationSimilarityStats object.
+        The 'weighting' keyword argument can be set to 'linear' or 'quadratic'.
+        This determines how the similarity scores in each group are combined.
+        If 'linear', then the scores are added together. If 'quadratic', then
+        the scores are squared and then added together. 'quadratic' effectively
+        strongly penalises groups which are very similar.
 
+        Returns a PermutationSimilarityStats object.
         """
         all_participants = self.participants() | other.participants()
         score_total = 0
@@ -142,13 +149,16 @@ class Permutation:
                                                    excluding=[p])
                 if sim > 0:
                     persons_with_repeats[p] = sim
-                score_total += sim
+                
+                if weighting == 'linear':
+                    score_total += sim
+                elif weighting == 'quadratic':
+                    score_total += sim ** 2
 
         return PermutationSimilarityStats(
             per_person_score=score_total / len(all_participants),
             persons_with_repeats=persons_with_repeats
         )
-
 
 
 class PermutationSimilarityStats:
@@ -175,9 +185,12 @@ class PermutationSimilarityStats:
         self.persons_with_repeats = persons_with_repeats
 
     def __str__(self):
-        sorted_persons = sorted(self.persons_with_repeats.items(),
-                                key=lambda x: [x[1], x[0]])
-        persons_with_repeats_str = '\n'.join([f'    {v} for {k}'
-                                              for k, v in sorted_persons])
-        return (f"per_person_score\n    {self.per_person_score}\n"
+        if len(self.persons_with_repeats) == 0:
+            persons_with_repeats_str = '    none'
+        else:
+            sorted_persons = sorted(self.persons_with_repeats.items(),
+                                    key=lambda x: [x[1], x[0]])
+            persons_with_repeats_str = '\n'.join([f'    {v} for {k}'
+                                                  for k, v in sorted_persons])
+        return (f"per_person_score\n    {self.per_person_score:.4f}\n"
                 f"persons_with_repeats\n{persons_with_repeats_str}")
