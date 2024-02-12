@@ -206,7 +206,7 @@ if __name__ == "__main__":
         #    similarity_2 is the similarity to the second most recent, etc.
         #    Note that by virtue of the filtering in step 2, similarity_1 will
         #    always be 0.
-        n_attempts = 10000
+        n_attempts = 100000
         perfect_perms = []
 
         announce(f"Generating {n_attempts} random permutations and picking the best.")
