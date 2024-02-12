@@ -36,7 +36,8 @@ from pathlib import Path
 from tqdm import tqdm
 
 from .randomise import randomise
-from .main import Permutation
+from .file import get_all_previous_permutations
+from .leader import adjust_leaders
 
 def announce(s):
     print(f"✨ \033[1m{s}\033[0m")
@@ -166,27 +167,13 @@ def copy_html_to_clipboard(html_text: str) -> None:
         ) from None
 
 
-def get_most_recent_permutations(prev_dir: str | Path = "previous") -> list[Permutation]:
-    """Get the most recent permutation from a directory of previous
-    permutations. Makes sure to ignore .latest.json files."""
-    ALL_PERMS = []
-    prev_dir = Path(prev_dir)
-    for file in prev_dir.iterdir():
-        if file.is_file() and file.suffix == '.json' and file.name != '.latest.json':
-            ALL_PERMS.append(Permutation.from_json_file(file))
-    if len(ALL_PERMS) == 0:
-        raise FileNotFoundError(f"No previous permutations found"
-                                f" in '{prev_dir.resolve()}'")
-    return sorted(ALL_PERMS, key=lambda p: p.date, reverse=True)
-
-
 if __name__ == "__main__":
     args = parse_args()
     participants = determine_participants(include_file="include",
                                           exclude_file="exclude",
                                           args_excluded_emails=args.exclude)
 
-    most_recent_perms = get_most_recent_permutations(prev_dir="previous")
+    most_recent_perms = get_all_previous_permutations(prev_dir="previous")
 
     ALGORITHM = 'random_pick_best'
 
@@ -197,6 +184,7 @@ if __name__ == "__main__":
         # permutation
         permutation = randomise([p.email for p in participants],
                                 algorithm=ALGORITHM)
+        permutation = adjust_leaders(permutation)
         most_recent_perm = most_recent_perms[0]
         announce(f"Similarity to previous coffee on {most_recent_perm.date}")
         print(permutation.similarity_to(most_recent_perm))
@@ -246,6 +234,7 @@ if __name__ == "__main__":
 
         perfect_perms.sort(key=weighted_similarity)
         permutation = perfect_perms[0]
+        permutation = adjust_leaders(permutation)
 
         for prev_perm in most_recent_perms[:4]:
             announce(f"Similarity to previous coffee on {prev_perm.date}")
