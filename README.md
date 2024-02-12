@@ -21,7 +21,7 @@ Until I bother writing this up, you can find it in the comments scattered around
 
        python -m randoffee.run
 
-4. The script will put the email text into your system clipboard, and prompt you to save it as a file with a date.
+4. The script will put the email text into your system clipboard, and ask you whether these are your final groupings.
 
    Before answering yes or no, you should copy-paste the text into a desktop email client and check that the groups are sensible.
    (In practice we have never intervened with any of the groupings.)

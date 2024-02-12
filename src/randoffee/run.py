@@ -282,7 +282,7 @@ if __name__ == "__main__":
     print()
 
     # Prompt user to save permutation to disk
-    announce("Do you want to save this permutation as a file with a date?")
+    announce("Are these your final groupings (to be sent out via email)?")
     save_perm = input("   (y/n) > ")
     print()
     
