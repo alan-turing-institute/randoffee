@@ -7,7 +7,10 @@ Auxiliary functions for reading / writing permutations.
 from pathlib import Path
 from . import Permutation
 
-def get_all_previous_permutations(prev_dir: str | Path = "previous") -> list[Permutation]:
+
+def get_all_previous_permutations(
+    prev_dir: str | Path = "previous",
+) -> list[Permutation]:
     """
     Get all previous permutations from a directory of previous permutations.
     Makes sure to ignore .latest.json files.
@@ -27,9 +30,10 @@ def get_all_previous_permutations(prev_dir: str | Path = "previous") -> list[Per
     ALL_PERMS = []
     prev_dir = Path(prev_dir)
     for file in prev_dir.iterdir():
-        if file.is_file() and file.suffix == '.json' and file.name != '.latest.json':
+        if file.is_file() and file.suffix == ".json" and file.name != ".latest.json":
             ALL_PERMS.append(Permutation.from_json_file(file))
     if len(ALL_PERMS) == 0:
-        raise FileNotFoundError(f"No previous permutations found"
-                                f" in '{prev_dir.resolve()}'")
+        raise FileNotFoundError(
+            f"No previous permutations found" f" in '{prev_dir.resolve()}'"
+        )
     return sorted(ALL_PERMS, key=lambda p: p.date, reverse=True)

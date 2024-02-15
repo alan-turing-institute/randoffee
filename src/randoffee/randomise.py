@@ -5,10 +5,11 @@ import datetime
 from .main import Grouping, Permutation
 
 
-def randomise(participants: list[str],
-              group_size: int = 4,
-              algorithm: str = 'full_random',
-              ) -> "Permutation":
+def randomise(
+    participants: list[str],
+    group_size: int = 4,
+    algorithm: str = "full_random",
+) -> "Permutation":
     """Divide participants into groups.
 
     Parameters
@@ -28,8 +29,8 @@ def randomise(participants: list[str],
 
         'full_random' : Completely randomly permute participants.
     """
-    if algorithm == 'full_random':
-        participants = list(participants)   # make a copy
+    if algorithm == "full_random":
+        participants = list(participants)  # make a copy
         random.shuffle(participants)
 
         # Let N = qn + r, where N = number of participants, n = group size, q =
@@ -40,8 +41,10 @@ def randomise(participants: list[str],
 
         # Generate the first groups from the first qn people
         groupings = [
-            Grouping(leader=participants[group_size * i],
-                     others=participants[(group_size * i) + 1 : group_size * (i + 1)])
+            Grouping(
+                leader=participants[group_size * i],
+                others=participants[(group_size * i) + 1 : group_size * (i + 1)],
+            )
             for i in range(q)
         ]
 

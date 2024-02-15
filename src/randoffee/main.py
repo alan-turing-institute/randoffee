@@ -39,21 +39,16 @@ class Grouping:
 
     ## TODO: Typing of dictionary values is not specific enough here
     def _asdict(self) -> dict[str, str | list[str]]:
-        return {
-            "leader": self.leader,
-            "others": list(self.others)
-        }
-
+        return {"leader": self.leader, "others": list(self.others)}
 
     def to_json(self) -> str:
         return json.dumps(self._asdict(), indent=4)
 
     @classmethod
     def from_dict(cls, d: dict):
-        return cls(leader=d["leader"],
-                   others=d["others"])
+        return cls(leader=d["leader"], others=d["others"])
 
-    def similarity_to(self, other: 'Grouping', excluding=None) -> int:
+    def similarity_to(self, other: "Grouping", excluding=None) -> int:
         """
         Returns the number of people in common between this grouping and
         another.
@@ -67,8 +62,9 @@ class Grouping:
             excluding = set(excluding)
         else:
             excluding = set()
-        return len((self.participants() - excluding)
-                   & (other.participants() - excluding))
+        return len(
+            (self.participants() - excluding) & (other.participants() - excluding)
+        )
 
 
 class Permutation:
@@ -81,7 +77,7 @@ class Permutation:
         return {
             # YYYY-MM-DD
             "date": self.date.strftime("%Y-%m-%d"),
-            "groups": [g._asdict() for g in self.groups]
+            "groups": [g._asdict() for g in self.groups],
         }
 
     def participants(self) -> set[str]:
@@ -97,9 +93,10 @@ class Permutation:
     @classmethod
     def from_json(cls, json_string: str):
         d = json.loads(json_string)
-        return cls(date=datetime.date.fromisoformat(d["date"]),
-                   groups=[Grouping.from_dict(g)
-                           for g in d["groups"]])
+        return cls(
+            date=datetime.date.fromisoformat(d["date"]),
+            groups=[Grouping.from_dict(g) for g in d["groups"]],
+        )
 
     @classmethod
     def from_json_file(cls, filename: str | Path):
@@ -113,12 +110,12 @@ class Permutation:
             this_s.append(f"Group {i+1:<2d}: {grp.leader}")
             for other in grp.others:
                 this_s.append(f"          {other}")
-            s.append('\n'.join(this_s))
-        return '\n\n'.join(s)
+            s.append("\n".join(this_s))
+        return "\n\n".join(s)
 
-    def similarity_to(self,
-                      other: 'Permutation',
-                      weighting='linear') -> 'PermutationSimilarityStats':
+    def similarity_to(
+        self, other: "Permutation", weighting="linear"
+    ) -> "PermutationSimilarityStats":
         """
         Calculates the similarity between this permutation and another.
 
@@ -142,25 +139,28 @@ class Permutation:
             if len(this_groups) == 0 or len(other_groups) == 0:
                 continue
             elif len(this_groups) > 1:
-                raise ValueError(f"Person {p} was in more than one group"
-                                 f" in permutation dated {self.date}")
+                raise ValueError(
+                    f"Person {p} was in more than one group"
+                    f" in permutation dated {self.date}"
+                )
             elif len(other_groups) > 1:
-                raise ValueError(f"Person {p} was in more than one group"
-                                 f" in permutation dated {other.date}")
+                raise ValueError(
+                    f"Person {p} was in more than one group"
+                    f" in permutation dated {other.date}"
+                )
             else:
-                sim = this_groups[0].similarity_to(other_groups[0],
-                                                   excluding=[p])
+                sim = this_groups[0].similarity_to(other_groups[0], excluding=[p])
                 if sim > 0:
                     persons_with_repeats[p] = sim
-                
-                if weighting == 'linear':
+
+                if weighting == "linear":
                     score_total += sim
-                elif weighting == 'quadratic':
-                    score_total += sim ** 2
+                elif weighting == "quadratic":
+                    score_total += sim**2
 
         return PermutationSimilarityStats(
             per_person_score=score_total / len(all_participants),
-            persons_with_repeats=persons_with_repeats
+            persons_with_repeats=persons_with_repeats,
         )
 
 
@@ -189,11 +189,15 @@ class PermutationSimilarityStats:
 
     def __str__(self):
         if len(self.persons_with_repeats) == 0:
-            persons_with_repeats_str = '    none'
+            persons_with_repeats_str = "    none"
         else:
-            sorted_persons = sorted(self.persons_with_repeats.items(),
-                                    key=lambda x: [x[1], x[0]])
-            persons_with_repeats_str = '\n'.join([f'    {v} for {k}'
-                                                  for k, v in sorted_persons])
-        return (f"per_person_score\n    {self.per_person_score:.4f}\n"
-                f"persons_with_repeats\n{persons_with_repeats_str}")
+            sorted_persons = sorted(
+                self.persons_with_repeats.items(), key=lambda x: [x[1], x[0]]
+            )
+            persons_with_repeats_str = "\n".join(
+                [f"    {v} for {k}" for k, v in sorted_persons]
+            )
+        return (
+            f"per_person_score\n    {self.per_person_score:.4f}\n"
+            f"persons_with_repeats\n{persons_with_repeats_str}"
+        )

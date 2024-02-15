@@ -9,7 +9,7 @@ for this.
 from .file import get_all_previous_permutations
 from .main import Permutation, Grouping
 
-import random 
+import random
 
 
 def count_lead_occasions() -> dict[str, int]:
@@ -55,8 +55,7 @@ def adjust_leaders(perm: Permutation) -> Permutation:
     for group in perm.groups:
         participants = group.participants()
         min_hosted = min(lead_occasions.get(p, 0) for p in participants)
-        min_hosts = [p for p in participants
-                     if lead_occasions.get(p, 0) == min_hosted]
+        min_hosts = [p for p in participants if lead_occasions.get(p, 0) == min_hosted]
         new_leader = random.choice(min_hosts)
         new_others = [p for p in participants if p != new_leader]
 

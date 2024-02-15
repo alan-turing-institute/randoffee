@@ -42,6 +42,7 @@ from .randomise import randomise
 from .file import get_all_previous_permutations
 from .leader import adjust_leaders
 
+
 def announce(s):
     lines = wrap(s, width=70)
     for i, line in enumerate(lines):
@@ -50,6 +51,7 @@ def announce(s):
         else:
             print(f"       {line}")
     print("\033[0m", end="")
+
 
 def error(message, suggestion):
     message_lines = wrap(message, width=70)
@@ -65,10 +67,12 @@ def error(message, suggestion):
 
 
 def weighted_similarity(perm, most_recent_perms):
-    return (1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
-            + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
-            + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
-            + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score) / 2.5
+    return (
+        1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
+        + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
+        + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
+        + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score
+    ) / 2.5
 
 
 HEADER = "<br />".join(
@@ -100,7 +104,10 @@ judgment). Just drop us a Slack message or an email.
 Kind regards,
 Jon and Markus
 
-""".split("\n"))
+""".split(
+        "\n"
+    )
+)
 
 
 class Person:
@@ -112,10 +119,9 @@ class Person:
         return f"{self.name} <{self.email}>"
 
 
-def determine_participants(include_file,
-                           exclude_file,
-                           args_excluded_emails=None
-                           ) -> list[Person]:
+def determine_participants(
+    include_file, exclude_file, args_excluded_emails=None
+) -> list[Person]:
     with open(include_file, "r", encoding="UTF-8") as f:
         lines = f.read().splitlines()
         include_splits = [line.split(",") for line in lines]
@@ -168,7 +174,7 @@ def parse_args():
     parser.add_argument(
         "--allow-imperfect",
         action="store_true",
-        help="Allow imperfect permutations (i.e. those with repeated people from the last round)"
+        help="Allow imperfect permutations (i.e. those with repeated people from the last round)",
     )
 
     args = parser.parse_args()
@@ -209,9 +215,11 @@ def copy_html_to_clipboard(html_text: str) -> None:
 
 if __name__ == "__main__":
     args = parse_args()
-    participants = determine_participants(include_file="include",
-                                          exclude_file="exclude",
-                                          args_excluded_emails=args.exclude)
+    participants = determine_participants(
+        include_file="include",
+        exclude_file="exclude",
+        args_excluded_emails=args.exclude,
+    )
 
     most_recent_perms = get_all_previous_permutations(prev_dir="previous")
 
@@ -240,9 +248,12 @@ if __name__ == "__main__":
     print()
 
     for _ in tqdm(range(n_attempts)):
-        trial_permutation = randomise([p.email for p in participants],
-                                      algorithm='full_random')
-        trial_similarity = trial_permutation.similarity_to(most_recent_perms[0]).per_person_score
+        trial_permutation = randomise(
+            [p.email for p in participants], algorithm="full_random"
+        )
+        trial_similarity = trial_permutation.similarity_to(
+            most_recent_perms[0]
+        ).per_person_score
         # Check if it's perfect
         if trial_similarity == 0:
             perfect_perms.append(trial_permutation)
@@ -258,11 +269,17 @@ if __name__ == "__main__":
             # OK to not have a perfect permutation, just choose the best one
             permutation = best_perm
         else:
-            error(message=(f"No permutations with similarity to previous"
-                           f" round ({most_recent_perms[0].date}) found"),
-                  suggestion=("Try increasing the number of attempts with the -n"
-                              " flag, or suppressing this error with"
-                              " --allow-imperfect."))
+            error(
+                message=(
+                    f"No permutations with similarity to previous"
+                    f" round ({most_recent_perms[0].date}) found"
+                ),
+                suggestion=(
+                    "Try increasing the number of attempts with the -n"
+                    " flag, or suppressing this error with"
+                    " --allow-imperfect."
+                ),
+            )
     else:
         # Calculate weighted similarity for each of the perfect permutations,
         # and select the lowest from these
@@ -288,19 +305,23 @@ if __name__ == "__main__":
     email_text = HEADER
     email_text += "<br />"
     for i, group in enumerate(permutation.groups, start=1):
-        email_text += (f"Group {i}:"
-                       f" <b>{get_name_from_email(group.leader, participants)}</b>"
-                       f" | "
-                       f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}<br />")
+        email_text += (
+            f"Group {i}:"
+            f" <b>{get_name_from_email(group.leader, participants)}</b>"
+            f" | "
+            f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}<br />"
+        )
     email_text += FOOTER
 
     # Copy email text to clipboard
     copy_html_to_clipboard(email_text)
 
     # Print emails to send to
-    announce("The email text has been copied to your system clipboard."
-               " You should be able to paste it into any desktop email"
-               " client (browser doesn't work).")
+    announce(
+        "The email text has been copied to your system clipboard."
+        " You should be able to paste it into any desktop email"
+        " client (browser doesn't work)."
+    )
     print()
     announce("Send the email to the following people:")
     print("; ".join(sorted(p.email for p in participants)))
@@ -309,20 +330,22 @@ if __name__ == "__main__":
     # Prompt user to save permutation to disk
     announce("Are these your final groupings (to be sent out via email)?")
     save_perm = ""
-    while save_perm.strip().lower() not in ['y', 'n']:
+    while save_perm.strip().lower() not in ["y", "n"]:
         save_perm = input("(y/n) > ")
     print()
-    
+
     # Always save it to .latest.json, but if user said yes, then additionally
     # save it to a file with the date as the name
     save_perm_dir = Path("previous")
     save_perm_dir.mkdir(exist_ok=True)
     save_perm_file = save_perm_dir / ".latest.json"
     permutation.to_json_file(save_perm_file)
-    if save_perm.strip().lower() == 'y':
+    if save_perm.strip().lower() == "y":
         save_perm_file = save_perm_dir / f"{permutation.date}.json"
         permutation.to_json_file(save_perm_file)
         announce(f"Permutation saved to '{save_perm_file}'.")
     else:
-        announce(f"Permutation not saved. (You can still find it at"
-                 f" '{save_perm_file}' should you need it.)")
+        announce(
+            f"Permutation not saved. (You can still find it at"
+            f" '{save_perm_file}' should you need it.)"
+        )
