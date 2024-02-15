@@ -21,11 +21,10 @@ likely to change than names are.
     ]
 }
 """
+from __future__ import annotations
 
-import json
 import datetime
-import itertools
-from collections import Counter
+import json
 from pathlib import Path
 
 
@@ -48,7 +47,7 @@ class Grouping:
     def from_dict(cls, d: dict):
         return cls(leader=d["leader"], others=d["others"])
 
-    def similarity_to(self, other: "Grouping", excluding=None) -> int:
+    def similarity_to(self, other: Grouping, excluding=None) -> int:
         """
         Returns the number of people in common between this grouping and
         another.
@@ -58,10 +57,7 @@ class Grouping:
         groupings containing a particular person are, but you don't want to
         count that person.
         """
-        if excluding is not None:
-            excluding = set(excluding)
-        else:
-            excluding = set()
+        excluding = set(excluding) if excluding is not None else set()
         return len(
             (self.participants() - excluding) & (other.participants() - excluding)
         )
@@ -87,7 +83,7 @@ class Permutation:
         return json.dumps(self._asdict(), indent=4)
 
     def to_json_file(self, filename: str | Path):
-        with open(filename, "w") as f:
+        with Path(filename).open("w") as f:
             f.write(self.to_json())
 
     @classmethod
@@ -100,7 +96,7 @@ class Permutation:
 
     @classmethod
     def from_json_file(cls, filename: str | Path):
-        with open(filename, "r") as f:
+        with Path(filename).open("r") as f:
             return cls.from_json(f.read())
 
     def __str__(self):
@@ -114,8 +110,8 @@ class Permutation:
         return "\n\n".join(s)
 
     def similarity_to(
-        self, other: "Permutation", weighting="linear"
-    ) -> "PermutationSimilarityStats":
+        self, other: Permutation, weighting="linear"
+    ) -> PermutationSimilarityStats:
         """
         Calculates the similarity between this permutation and another.
 
@@ -135,28 +131,26 @@ class Permutation:
             # Find groups that P was in
             this_groups = [g for g in self.groups if p in g.participants()]
             other_groups = [g for g in other.groups if p in g.participants()]
-            # Person didn't take part in one round. Assign a score of 0.
+
+            # If P was not in any group in either permutation, skip
             if len(this_groups) == 0 or len(other_groups) == 0:
                 continue
-            elif len(this_groups) > 1:
-                raise ValueError(
-                    f"Person {p} was in more than one group"
-                    f" in permutation dated {self.date}"
-                )
-            elif len(other_groups) > 1:
-                raise ValueError(
-                    f"Person {p} was in more than one group"
-                    f" in permutation dated {other.date}"
-                )
-            else:
-                sim = this_groups[0].similarity_to(other_groups[0], excluding=[p])
-                if sim > 0:
-                    persons_with_repeats[p] = sim
+            # Check that P was in at most one group in each permutation
+            if len(this_groups) > 1:
+                msg = f"Person {p} was in more than one group in permutation dated {self.date}"
+                raise ValueError(msg)
+            if len(other_groups) > 1:
+                msg = f"Person {p} was in more than one group in permutation dated {other.date}"
+                raise ValueError(msg)
 
-                if weighting == "linear":
-                    score_total += sim
-                elif weighting == "quadratic":
-                    score_total += sim**2
+            sim = this_groups[0].similarity_to(other_groups[0], excluding=[p])
+            if sim > 0:
+                persons_with_repeats[p] = sim
+
+            if weighting == "linear":
+                score_total += sim
+            elif weighting == "quadratic":
+                score_total += sim**2
 
         return PermutationSimilarityStats(
             per_person_score=score_total / len(all_participants),

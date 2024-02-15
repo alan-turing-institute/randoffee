@@ -1,6 +1,7 @@
-import random
-import datetime
+from __future__ import annotations
 
+import datetime
+import random
 
 from .main import Grouping, Permutation
 
@@ -9,7 +10,7 @@ def randomise(
     participants: list[str],
     group_size: int = 4,
     algorithm: str = "full_random",
-) -> "Permutation":
+) -> Permutation:
     """Divide participants into groups.
 
     Parameters
@@ -57,5 +58,5 @@ def randomise(
 
         return Permutation(date=datetime.date.today(), groups=groupings)
 
-    else:
-        raise ValueError(f"Invalid algorithm '{algorithm}'")
+    msg = f"Invalid algorithm '{algorithm}'"
+    raise ValueError(msg)

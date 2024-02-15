@@ -3,8 +3,10 @@ file.py
 -------
 Auxiliary functions for reading / writing permutations.
 """
+from __future__ import annotations
 
 from pathlib import Path
+
 from . import Permutation
 
 
@@ -33,7 +35,6 @@ def get_all_previous_permutations(
         if file.is_file() and file.suffix == ".json" and file.name != ".latest.json":
             ALL_PERMS.append(Permutation.from_json_file(file))
     if len(ALL_PERMS) == 0:
-        raise FileNotFoundError(
-            f"No previous permutations found" f" in '{prev_dir.resolve()}'"
-        )
+        msg = f"No previous permutations found in '{prev_dir.resolve()}'"
+        raise FileNotFoundError(msg)
     return sorted(ALL_PERMS, key=lambda p: p.date, reverse=True)

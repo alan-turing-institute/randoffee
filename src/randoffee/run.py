@@ -28,19 +28,19 @@ complete text for an email. This text is automatically copied to the clipboard
 in RTF format, and can then be pasted into the desktop version of Outlook (or
 the macOS Mail.app).
 """
+from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 from textwrap import wrap
-import sys
-import readline
 
 from tqdm import tqdm
 
-from .randomise import randomise
 from .file import get_all_previous_permutations
 from .leader import adjust_leaders
+from .randomise import randomise
 
 
 def announce(s):
@@ -122,14 +122,14 @@ class Person:
 def determine_participants(
     include_file, exclude_file, args_excluded_emails=None
 ) -> list[Person]:
-    with open(include_file, "r", encoding="UTF-8") as f:
+    with Path(include_file).open(encoding="UTF-8") as f:
         lines = f.read().splitlines()
         include_splits = [line.split(",") for line in lines]
         include_people = [Person(split[0], split[1]) for split in include_splits]
 
-    with open(exclude_file, "r", encoding="UTF-8") as f:
+    with Path(exclude_file).open(encoding="UTF-8") as f:
         lines = f.read().splitlines()
-        exclude_file_emails = set(line.split(",")[1] for line in lines)
+        exclude_file_emails = {line.split(",")[1] for line in lines}
 
     if args_excluded_emails is None:
         args_excluded_emails = set()
@@ -150,7 +150,8 @@ def get_name_from_email(email: str, participants: list[Person]):
     for p in participants:
         if p.email == email:
             return p.name
-    raise ValueError(f"Email {email} not found in participants")
+    msg = f"Email {email} not found in participants"
+    raise ValueError(msg)
 
 
 def parse_args():
@@ -207,10 +208,8 @@ def copy_html_to_clipboard(html_text: str) -> None:
         proc1.communicate(input=html_text.encode("UTF-8"))
         proc2.wait()
     except FileNotFoundError:
-        raise FileNotFoundError(
-            "Error: textutil or pbcopy not found. For automatic copying to"
-            " clipboard, please run this on macOS."
-        ) from None
+        msg = "Error: textutil or pbcopy not found. For automatic copying to clipboard, please run this on macOS."
+        raise FileNotFoundError(msg) from None
 
 
 if __name__ == "__main__":
@@ -288,7 +287,7 @@ if __name__ == "__main__":
         permutation = adjust_leaders(permutation)
 
     # Print the permutation and some stats
-    announce(f"Proposed permutation")
+    announce("Proposed permutation")
     print(permutation)
     print()
 
@@ -297,7 +296,7 @@ if __name__ == "__main__":
         print(permutation.similarity_to(prev_perm))
         print()
 
-    announce(f"Weighted similarity to previous 4 permutations")
+    announce("Weighted similarity to previous 4 permutations")
     print(weighted_similarity(permutation, most_recent_perms))
     print()
 

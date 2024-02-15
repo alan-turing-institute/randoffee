@@ -5,11 +5,12 @@ Contains functions for tallying the number of times a given person has been
 tasked with leading a coffee group, and for adjusting permutations to account
 for this.
 """
-
-from .file import get_all_previous_permutations
-from .main import Permutation, Grouping
+from __future__ import annotations
 
 import random
+
+from .file import get_all_previous_permutations
+from .main import Grouping, Permutation
 
 
 def count_lead_occasions() -> dict[str, int]:
