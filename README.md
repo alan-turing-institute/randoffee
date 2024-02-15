@@ -21,21 +21,21 @@ Until I bother writing this up, you can find it in the comments scattered around
 
        python -m randoffee.run
 
-4. The script will put the email text into your system clipboard, and ask you whether these are your final groupings.
+4. The script will print the groupings, some statistics about them, and ask you whether these are your final groupings.
 
-   Before answering yes or no, you should copy-paste the text into a desktop email client and check that the groups are sensible.
-   (In practice we have never intervened with any of the groupings.)
+   Before answering yes or no, you should double-check the groups to make sure that they are sensible.
+   (In practice, we have never interfered with any of the groups.)
 
-   If you are satisfied with these groupings, then you can save the permutation to disk.
+   If you are satisfied with these groupings, then you can enter `y` to save the permutation to disk.
    It will be saved in `previous/YYYY-MM-DD.json`.
    This file will be used for future coffee rounds (the script will make sure to generate groups that are sufficiently different from it).
 
-   If you accidentally hit no, the permutation will still be saved as `previous/.latest.json`.
+   If you enter `n`, the permutation will still be saved as `previous/.latest.json`.
    You can just `mv` this to the desired date if you realise that you do want those groups.
 
-5. Change the random topics in the email to anything you like.
+6. Change the random topics in the email to anything you like.
 
-6. Send the email to the list of email addresses the script gives you.
+7. Send the email to the list of email addresses the script gives you.
 
 -------
 
