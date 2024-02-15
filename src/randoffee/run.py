@@ -32,6 +32,9 @@ the macOS Mail.app).
 import argparse
 import subprocess
 from pathlib import Path
+from textwrap import wrap
+import sys
+import readline
 
 from tqdm import tqdm
 
@@ -40,7 +43,32 @@ from .file import get_all_previous_permutations
 from .leader import adjust_leaders
 
 def announce(s):
-    print(f"✨ \033[1m{s}\033[0m")
+    lines = wrap(s, width=70)
+    for i, line in enumerate(lines):
+        if i == 0:
+            print(f"✨☕️✨ \033[1m{line}")
+        else:
+            print(f"       {line}")
+    print("\033[0m", end="")
+
+def error(message, suggestion):
+    message_lines = wrap(message, width=70)
+    for i, line in enumerate(message_lines):
+        if i == 0:
+            print(f"❌ \033[1m{line}")
+        else:
+            print(f"   {line}")
+    print("\033[0m", end="")
+    for line in wrap(suggestion, width=70):
+        print(f"   {line}")
+    sys.exit(1)
+
+
+def weighted_similarity(perm, most_recent_perms):
+    return (1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
+            + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
+            + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
+            + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score) / 2.5
 
 
 HEADER = "<br />".join(
@@ -130,6 +158,18 @@ def parse_args():
         default=[],
         help="Emails to exclude (can be space or semicolon separated)",
     )
+    parser.add_argument(
+        "-n",
+        "--number",
+        default=100000,
+        help="Number of random permutations to generate (default: 100000)",
+        type=int,
+    )
+    parser.add_argument(
+        "--allow-imperfect",
+        action="store_true",
+        help="Allow imperfect permutations (i.e. those with repeated people from the last round)"
+    )
 
     args = parser.parse_args()
     # Split on semicolons (if any)
@@ -175,78 +215,74 @@ if __name__ == "__main__":
 
     most_recent_perms = get_all_previous_permutations(prev_dir="previous")
 
-    ALGORITHM = 'random_pick_best'
+    # 1. Perform full randomisation args.number times.
+    # 2. Filter for those which have 0 similarity to the immediately
+    #    preceding permutation (i.e. no repeated people from the last
+    #    round).
+    # 3. Pick the one with the lowest weighted similarity to the preceding
+    #    4 permutations. The weighted similarity is defined as
+    #
+    #       weighted_similarity = (  1.0 * similarity_1
+    #                              + 0.8 * similarity_2
+    #                              + 0.5 * similarity_3
+    #                              + 0.2 * similarity_4) / 2.5
+    #
+    #    where similarity_1 is the similarity to the most recent permutation,
+    #    similarity_2 is the similarity to the second most recent, etc.
+    #    Note that by virtue of the filtering in step 2, similarity_1 will
+    #    always be 0.
+    n_attempts = args.number
+    perfect_perms = []
+    best_perm = None
+    best_similarity = 1.0
 
-    if ALGORITHM == 'random_once':
-        announce("Generating a single random permutation.")
+    announce(f"Generating {n_attempts} random permutations and picking the best.")
+    print()
 
-        # Perform full randomisation one time and check similarity to previous
-        # permutation
-        permutation = randomise([p.email for p in participants],
-                                algorithm=ALGORITHM)
-        permutation = adjust_leaders(permutation)
-        most_recent_perm = most_recent_perms[0]
-        announce(f"Similarity to previous coffee on {most_recent_perm.date}")
-        print(permutation.similarity_to(most_recent_perm))
+    for _ in tqdm(range(n_attempts)):
+        trial_permutation = randomise([p.email for p in participants],
+                                      algorithm='full_random')
+        trial_similarity = trial_permutation.similarity_to(most_recent_perms[0]).per_person_score
+        # Check if it's perfect
+        if trial_similarity == 0:
+            perfect_perms.append(trial_permutation)
+        # Check if it's the best so far
+        if trial_similarity < best_similarity:
+            best_similarity = trial_similarity
+            best_perm = trial_permutation
+    print()
 
-    elif ALGORITHM == 'random_pick_best':
-        # 1. Perform full randomisation 100000 times.
-        # 2. Filter for those which have 0 similarity to the immediately
-        #    preceding permutation (i.e. no repeated people from the last
-        #    round).
-        # 3. Pick the one with the lowest weighted similarity to the preceding
-        #    4 permutations. The weighted similarity is defined as
-        #
-        #       weighted_similarity = (  1.0 * similarity_1
-        #                              + 0.8 * similarity_2
-        #                              + 0.5 * similarity_3
-        #                              + 0.2 * similarity_4) / 2.5
-        #
-        #    where similarity_1 is the similarity to the most recent permutation,
-        #    similarity_2 is the similarity to the second most recent, etc.
-        #    Note that by virtue of the filtering in step 2, similarity_1 will
-        #    always be 0.
-        n_attempts = 100000
-        perfect_perms = []
-
-        announce(f"Generating {n_attempts} random permutations and picking the best.")
-        print()
-
-        for _ in tqdm(range(n_attempts)):
-            trial_permutation = randomise([p.email for p in participants],
-                                          algorithm='full_random')
-            trial_similarity = trial_permutation.similarity_to(most_recent_perms[0]).per_person_score
-            if trial_similarity == 0:
-                perfect_perms.append(trial_permutation)
-
-        print()
-
-        if len(perfect_perms) == 0:
-            raise ValueError(f"No permutations with similarity to previous"
-                             f" round ({most_recent_perms[0].date}) found")
-
-        # Calculate weighted similarity for each permutation
-        def weighted_similarity(perm):
-            return (1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
-                    + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
-                    + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
-                    + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score) / 2.5
-
-        perfect_perms.sort(key=weighted_similarity)
+    # Choose the best permutation
+    if len(perfect_perms) == 0:
+        if args.allow_imperfect:
+            # OK to not have a perfect permutation, just choose the best one
+            permutation = best_perm
+        else:
+            error(message=(f"No permutations with similarity to previous"
+                           f" round ({most_recent_perms[0].date}) found"),
+                  suggestion=("Try increasing the number of attempts with the -n"
+                              " flag, or suppressing this error with"
+                              " --allow-imperfect."))
+    else:
+        # Calculate weighted similarity for each of the perfect permutations,
+        # and select the lowest from these
+        perfect_perms.sort(key=lambda p: weighted_similarity(p, most_recent_perms))
         permutation = perfect_perms[0]
         permutation = adjust_leaders(permutation)
 
-        for prev_perm in most_recent_perms[:4]:
-            announce(f"Similarity to previous coffee on {prev_perm.date}")
-            print(permutation.similarity_to(prev_perm))
-            print()
+    # Print the permutation and some stats
+    announce(f"Proposed permutation")
+    print(permutation)
+    print()
 
-        announce(f"Weighted similarity to previous 4 permutations")
-        print(weighted_similarity(permutation))
+    for prev_perm in most_recent_perms[:4]:
+        announce(f"Similarity to previous coffee on {prev_perm.date}")
+        print(permutation.similarity_to(prev_perm))
         print()
 
-    else:
-        raise ValueError(f"Algorithm '{ALGORITHM}' not recognised")
+    announce(f"Weighted similarity to previous 4 permutations")
+    print(weighted_similarity(permutation, most_recent_perms))
+    print()
 
     # Generate email text
     email_text = HEADER
@@ -263,7 +299,7 @@ if __name__ == "__main__":
 
     # Print emails to send to
     announce("The email text has been copied to your system clipboard."
-               " You should be able to paste it into\n   any desktop email"
+               " You should be able to paste it into any desktop email"
                " client (browser doesn't work).")
     print()
     announce("Send the email to the following people:")
@@ -272,7 +308,9 @@ if __name__ == "__main__":
 
     # Prompt user to save permutation to disk
     announce("Are these your final groupings (to be sent out via email)?")
-    save_perm = input("   (y/n) > ")
+    save_perm = ""
+    while save_perm.strip().lower() not in ['y', 'n']:
+        save_perm = input("(y/n) > ")
     print()
     
     # Always save it to .latest.json, but if user said yes, then additionally
@@ -281,7 +319,7 @@ if __name__ == "__main__":
     save_perm_dir.mkdir(exist_ok=True)
     save_perm_file = save_perm_dir / ".latest.json"
     permutation.to_json_file(save_perm_file)
-    if save_perm.lower() == 'y':
+    if save_perm.strip().lower() == 'y':
         save_perm_file = save_perm_dir / f"{permutation.date}.json"
         permutation.to_json_file(save_perm_file)
         announce(f"Permutation saved to '{save_perm_file}'.")

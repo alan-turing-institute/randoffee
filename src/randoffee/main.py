@@ -109,9 +109,12 @@ class Permutation:
     def __str__(self):
         s = []
         for i, grp in enumerate(self.groups):
-            s.append(f"Group {i+1}: {' | '.join(grp.participants())}")
-        return "\n".join(s)
-
+            this_s = []
+            this_s.append(f"Group {i+1:<2d}: {grp.leader}")
+            for other in grp.others:
+                this_s.append(f"          {other}")
+            s.append('\n'.join(this_s))
+        return '\n\n'.join(s)
 
     def similarity_to(self,
                       other: 'Permutation',
