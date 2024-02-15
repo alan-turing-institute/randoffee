@@ -284,9 +284,9 @@ if __name__ == "__main__":
         # and select the lowest from these
         perfect_perms.sort(key=lambda p: weighted_similarity(p, most_recent_perms))
         permutation = perfect_perms[0]
-        permutation = adjust_leaders(permutation)
 
     # Print the permutation and some stats
+    permutation = adjust_leaders(permutation)
     announce("Proposed permutation")
     print(permutation)
     print()
