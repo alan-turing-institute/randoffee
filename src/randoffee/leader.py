@@ -100,12 +100,10 @@ def adjust_leaders(
     Permutation
         The adjusted permutation.
     """
-    lead_occasions = count_lead_occasions()
-
     if metric == "lead_fraction":
         lead_scores = count_lead_fraction()
     elif metric == "lead_occasions":
-        lead_scores = lead_occasions
+        lead_scores = count_lead_occasions()
     else:
         msg = f"Invalid metric: {metric}"
         raise ValueError(msg)
