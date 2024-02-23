@@ -76,8 +76,8 @@ def adjust_leaders(
 ) -> Permutation:
     """
     Adjusts each group within a given permutation so that the leader is
-    selected randomly from the people within each group who have led the fewest
-    coffee groups.
+    selected randomly from the people within each group who have had the fewest
+    leading responsibilities (as determined by some metric).
 
     Parameters
     ----------
@@ -90,7 +90,8 @@ def adjust_leaders(
         A function used for calculating the score for people who have never
         participated in a coffee group before. The function should take a
         string, which is the name / email of the person, and return a float
-        which represents their score.
+        which represents their score. A higher score means that they are less
+        likely to be selected as the new leader.
         By default, this is a function which always returns math.inf, which
         effectively means that first-timers will never be selected to lead a
         group.
