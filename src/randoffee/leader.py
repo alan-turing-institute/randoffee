@@ -128,4 +128,4 @@ def adjust_leaders(
 
         new_groups.append(Grouping(leader=new_leader, others=new_others))
 
-    return Permutation(date=perm.date, groups=new_groups)
+    return Permutation(datetime=perm.datetime, groups=new_groups)

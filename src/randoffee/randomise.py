@@ -56,7 +56,7 @@ def randomise(
             for ind, element in zip(oversize_group_inds, excess_participants):
                 groupings[ind].others.add(element)
 
-        return Permutation(date=datetime.date.today(), groups=groupings)
+        return Permutation(datetime=datetime.datetime.now(), groups=groupings)
 
     msg = f"Invalid algorithm '{algorithm}'"
     raise ValueError(msg)

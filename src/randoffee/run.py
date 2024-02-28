@@ -270,8 +270,8 @@ if __name__ == "__main__":
         else:
             error(
                 message=(
-                    f"No permutations with similarity to previous"
-                    f" round ({most_recent_perms[0].date}) found"
+                    f"No permutations with no similarity to previous"
+                    f" round ({most_recent_perms[0].datetime.date()}) found"
                 ),
                 suggestion=(
                     "Try increasing the number of attempts with the -n"
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     print()
 
     for prev_perm in most_recent_perms[:4]:
-        announce(f"Similarity to previous coffee on {prev_perm.date}")
+        announce(f"Similarity to previous coffee on {prev_perm.datetime.date()}")
         print(permutation.similarity_to(prev_perm))
         print()
 
@@ -340,7 +340,12 @@ if __name__ == "__main__":
     save_perm_file = save_perm_dir / ".latest.json"
     permutation.to_json_file(save_perm_file)
     if save_perm.strip().lower() == "y":
-        save_perm_file = save_perm_dir / f"{permutation.date}.json"
+        permutation_date = permutation.datetime.date()
+        save_perm_file = save_perm_dir / f"{permutation_date}.json"
+        counter = 0
+        while save_perm_file.exists():
+            counter += 1
+            save_perm_file = save_perm_dir / f"{permutation_date}_{counter}.json"
         permutation.to_json_file(save_perm_file)
         announce(f"Permutation saved to '{save_perm_file}'.")
     else:
