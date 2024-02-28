@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from math import inf
 from pathlib import Path
 from textwrap import wrap
 
@@ -67,12 +68,11 @@ def error(message, suggestion):
 
 
 def weighted_similarity(perm, most_recent_perms):
-    return (
-        1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
-        + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
-        + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
-        + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score
-    ) / 2.5
+    weights = [1.0, 0.8, 0.5, 0.2]
+    return sum(
+        weight * perm.similarity_to(p).per_person_score
+        for weight, p in zip(weights, most_recent_perms)
+    ) / sum(weights)
 
 
 HEADER = "<br />".join(
@@ -282,18 +282,23 @@ if __name__ == "__main__":
     n_attempts = args.number
     perfect_perms = []
     best_perm = None
-    best_similarity = 1.0
+    best_similarity = inf
 
     announce(f"Generating {n_attempts} random permutations and picking the best.")
     print()
 
     for _ in tqdm(range(n_attempts)):
         trial_permutation = randomise(
-            [p.email for p in participants], algorithm="full_random"
+            [p.email for p in participants],
+            algorithm="full_random",
+            group_size=group_size,
         )
-        trial_similarity = trial_permutation.similarity_to(
-            most_recent_perms[0]
-        ).per_person_score
+        if most_recent_perms:
+            trial_similarity = trial_permutation.similarity_to(
+                most_recent_perms[0]
+            ).per_person_score
+        else:
+            trial_similarity = 0
         # Check if it's perfect
         if trial_similarity == 0:
             perfect_perms.append(trial_permutation)
