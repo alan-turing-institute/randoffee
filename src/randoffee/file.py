@@ -17,6 +17,8 @@ def get_all_previous_permutations(
     Get all previous permutations from a directory of previous permutations.
     Makes sure to ignore .latest.json files.
 
+    If the directory does not exist, an empty list is returned.
+
     Parameters
     ----------
     prev_dir : str | Path
@@ -31,10 +33,12 @@ def get_all_previous_permutations(
     """
     ALL_PERMS = []
     prev_dir = Path(prev_dir)
-    for file in prev_dir.iterdir():
-        if file.is_file() and file.suffix == ".json" and file.name != ".latest.json":
-            ALL_PERMS.append(Permutation.from_json_file(file))
-    if len(ALL_PERMS) == 0:
-        msg = f"No previous permutations found in '{prev_dir.resolve()}'"
-        raise FileNotFoundError(msg)
-    return sorted(ALL_PERMS, key=lambda p: p.date, reverse=True)
+    if prev_dir.is_dir():
+        for file in prev_dir.iterdir():
+            if (
+                file.is_file()
+                and file.suffix == ".json"
+                and file.name != ".latest.json"
+            ):
+                ALL_PERMS.append(Permutation.from_json_file(file))
+    return sorted(ALL_PERMS, key=lambda p: p.datetime, reverse=True)

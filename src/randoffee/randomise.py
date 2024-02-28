@@ -52,11 +52,15 @@ def randomise(
         # Add the last r people to r randomly chosen groups
         if r > 0:
             excess_participants = participants[q * group_size :]
-            oversize_group_inds = random.sample(range(q), r)
+            oversize_group_inds = []
+            # The loop is necessary if r > q, in which we can't sample without
+            # replacement and find groups for all the excess participants.
+            while len(oversize_group_inds) < r:
+                oversize_group_inds += random.sample(range(q), min(r, q))
             for ind, element in zip(oversize_group_inds, excess_participants):
                 groupings[ind].others.add(element)
 
-        return Permutation(date=datetime.date.today(), groups=groupings)
+        return Permutation(datetime=datetime.datetime.now(), groups=groupings)
 
     msg = f"Invalid algorithm '{algorithm}'"
     raise ValueError(msg)

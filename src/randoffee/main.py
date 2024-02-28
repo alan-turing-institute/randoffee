@@ -11,7 +11,7 @@ in the `include` file. The rationale for using emails is that these are less
 likely to change than names are.
 
 {
-    "date": date,
+    "datetime": datetime,
     "groups": [
         {
             "leader": str,
@@ -64,15 +64,15 @@ class Grouping:
 
 
 class Permutation:
-    def __init__(self, date: datetime.date, groups: list[Grouping]):
-        self.date = date
+    def __init__(self, datetime: datetime.datetime, groups: list[Grouping]):
+        self.datetime = datetime
         self.groups = groups
 
     ## TODO: Typing of dictionary values is not specific enough here
     def _asdict(self) -> dict[str, str | list[dict[str, str | list[str]]]]:
         return {
             # YYYY-MM-DD
-            "date": self.date.strftime("%Y-%m-%d"),
+            "datetime": self.datetime.isoformat(),
             "groups": [g._asdict() for g in self.groups],
         }
 
@@ -90,7 +90,7 @@ class Permutation:
     def from_json(cls, json_string: str):
         d = json.loads(json_string)
         return cls(
-            date=datetime.date.fromisoformat(d["date"]),
+            datetime=datetime.datetime.fromisoformat(d["datetime"]),
             groups=[Grouping.from_dict(g) for g in d["groups"]],
         )
 
@@ -137,10 +137,10 @@ class Permutation:
                 continue
             # Check that P was in at most one group in each permutation
             if len(this_groups) > 1:
-                msg = f"Person {p} was in more than one group in permutation dated {self.date}"
+                msg = f"Person {p} was in more than one group in permutation dated {self.datetime.date()}"
                 raise ValueError(msg)
             if len(other_groups) > 1:
-                msg = f"Person {p} was in more than one group in permutation dated {other.date}"
+                msg = f"Person {p} was in more than one group in permutation dated {other.datetime.date()}"
                 raise ValueError(msg)
 
             sim = this_groups[0].similarity_to(other_groups[0], excluding=[p])

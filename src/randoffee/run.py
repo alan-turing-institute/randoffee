@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from math import inf
 from pathlib import Path
 from textwrap import wrap
 
@@ -67,12 +68,11 @@ def error(message, suggestion):
 
 
 def weighted_similarity(perm, most_recent_perms):
-    return (
-        1.0 * perm.similarity_to(most_recent_perms[0]).per_person_score
-        + 0.8 * perm.similarity_to(most_recent_perms[1]).per_person_score
-        + 0.5 * perm.similarity_to(most_recent_perms[2]).per_person_score
-        + 0.2 * perm.similarity_to(most_recent_perms[3]).per_person_score
-    ) / 2.5
+    weights = [1.0, 0.8, 0.5, 0.2]
+    return sum(
+        weight * perm.similarity_to(p).per_person_score
+        for weight, p in zip(weights, most_recent_perms)
+    ) / sum(weights)
 
 
 HEADER = "<br />".join(
@@ -122,14 +122,42 @@ class Person:
 def determine_participants(
     include_file, exclude_file, args_excluded_emails=None
 ) -> list[Person]:
-    with Path(include_file).open(encoding="UTF-8") as f:
+    include_file_obj = Path(include_file)
+    if not include_file_obj.exists():
+        error(
+            message=f"File '{include_file}' not found.",
+            suggestion="Please make sure the file is in the current working directory. It should have a list of all the people participating in the random coffees, one per line, with a comma separating their name from their email.",
+        )
+    with include_file_obj.open(encoding="UTF-8") as f:
         lines = f.read().splitlines()
-        include_splits = [line.split(",") for line in lines]
+    include_splits = [line.split(",") for line in lines]
+    try:
         include_people = [Person(split[0], split[1]) for split in include_splits]
+    except IndexError:
+        error(
+            message=(f"Error reading the file '{include_file}'."),
+            suggestion="Each line should have a comma that separates the name of the person from their email.",
+        )
 
-    with Path(exclude_file).open(encoding="UTF-8") as f:
-        lines = f.read().splitlines()
+    if not include_people:
+        error(
+            message=f"No participants found in '{include_file}'.",
+            suggestion="Please make sure the file is not empty and has the correct format: One person per line, with a comma separating their name from their email.",
+        )
+
+    exclude_file_obj = Path(exclude_file)
+    if exclude_file_obj.exists():
+        with exclude_file_obj.open(encoding="UTF-8") as f:
+            lines = f.read().splitlines()
+    else:
+        lines = []
+    try:
         exclude_file_emails = {line.split(",")[1] for line in lines}
+    except IndexError:
+        error(
+            message=(f"Error reading the file '{exclude_file}'."),
+            suggestion="Each line should have a comma that separates the name of the person from their email.",
+        )
 
     if args_excluded_emails is None:
         args_excluded_emails = set()
@@ -214,13 +242,26 @@ def copy_html_to_clipboard(html_text: str) -> None:
 
 if __name__ == "__main__":
     args = parse_args()
+    prev_dir = "previous"
+    group_size = 4
+
     participants = determine_participants(
         include_file="include",
         exclude_file="exclude",
         args_excluded_emails=args.exclude,
     )
+    if not participants:
+        announce(
+            "There are no participants in this round, and thus nothing to do. Are you perhaps excluding everyone?",
+        )
+        sys.exit(0)
 
-    most_recent_perms = get_all_previous_permutations(prev_dir="previous")
+    most_recent_perms = get_all_previous_permutations(prev_dir)
+    if not most_recent_perms:
+        announce(
+            f"Could not find any previous permutations in '{prev_dir}'. If this is the first time you're running randoffee, that's fine. Otherwise make sure '{prev_dir}' is in the current working directory."
+        )
+        print()
 
     # 1. Perform full randomisation args.number times.
     # 2. Filter for those which have 0 similarity to the immediately
@@ -241,18 +282,23 @@ if __name__ == "__main__":
     n_attempts = args.number
     perfect_perms = []
     best_perm = None
-    best_similarity = 1.0
+    best_similarity = inf
 
     announce(f"Generating {n_attempts} random permutations and picking the best.")
     print()
 
     for _ in tqdm(range(n_attempts)):
         trial_permutation = randomise(
-            [p.email for p in participants], algorithm="full_random"
+            [p.email for p in participants],
+            algorithm="full_random",
+            group_size=group_size,
         )
-        trial_similarity = trial_permutation.similarity_to(
-            most_recent_perms[0]
-        ).per_person_score
+        if most_recent_perms:
+            trial_similarity = trial_permutation.similarity_to(
+                most_recent_perms[0]
+            ).per_person_score
+        else:
+            trial_similarity = 0
         # Check if it's perfect
         if trial_similarity == 0:
             perfect_perms.append(trial_permutation)
@@ -270,8 +316,8 @@ if __name__ == "__main__":
         else:
             error(
                 message=(
-                    f"No permutations with similarity to previous"
-                    f" round ({most_recent_perms[0].date}) found"
+                    f"No permutations with no similarity to previous"
+                    f" round ({most_recent_perms[0].datetime.date()}) found"
                 ),
                 suggestion=(
                     "Try increasing the number of attempts with the -n"
@@ -292,7 +338,7 @@ if __name__ == "__main__":
     print()
 
     for prev_perm in most_recent_perms[:4]:
-        announce(f"Similarity to previous coffee on {prev_perm.date}")
+        announce(f"Similarity to previous coffee on {prev_perm.datetime.date()}")
         print(permutation.similarity_to(prev_perm))
         print()
 
@@ -340,7 +386,12 @@ if __name__ == "__main__":
     save_perm_file = save_perm_dir / ".latest.json"
     permutation.to_json_file(save_perm_file)
     if save_perm.strip().lower() == "y":
-        save_perm_file = save_perm_dir / f"{permutation.date}.json"
+        permutation_date = permutation.datetime.date()
+        save_perm_file = save_perm_dir / f"{permutation_date}.json"
+        counter = 0
+        while save_perm_file.exists():
+            counter += 1
+            save_perm_file = save_perm_dir / f"{permutation_date}_{counter}.json"
         permutation.to_json_file(save_perm_file)
         announce(f"Permutation saved to '{save_perm_file}'.")
     else:
