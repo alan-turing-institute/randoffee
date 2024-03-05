@@ -62,6 +62,11 @@ class Grouping:
             (self.participants() - excluding) & (other.participants() - excluding)
         )
 
+    def team_distribution_score(self, other: Grouping) -> int:
+        """
+        Assess how well people from different teams are distributed in this group
+        """
+
 
 class Permutation:
     def __init__(self, datetime: datetime.datetime, groups: list[Grouping]):

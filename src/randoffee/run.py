@@ -111,12 +111,22 @@ Jon and Markus
 
 
 class Person:
-    def __init__(self, name, email):
+    def __init__(self, name, email, team=None):
         self.name = name
         self.email = email
+        self.team = team
 
     def __repr__(self):
+        if self.team:
+            return f"{self.name} <{self.email}> ({self.team})"
         return f"{self.name} <{self.email}>"
+
+    def __eq__(self, other):
+        return self.email == other.email
+
+    def __hash__(self):
+        # needed for randomise
+        return hash(self.email)
 
 
 def determine_participants(
@@ -126,23 +136,26 @@ def determine_participants(
     if not include_file_obj.exists():
         error(
             message=f"File '{include_file}' not found.",
-            suggestion="Please make sure the file is in the current working directory. It should have a list of all the people participating in the random coffees, one per line, with a comma separating their name from their email.",
+            suggestion="Please make sure the file is in the current working directory. It should have a list of all the people participating in the random coffees, one per line, with commas separating their name from their email and their (optional) team.",
         )
     with include_file_obj.open(encoding="UTF-8") as f:
         lines = f.read().splitlines()
     include_splits = [line.split(",") for line in lines]
     try:
-        include_people = [Person(split[0], split[1]) for split in include_splits]
+        include_people = [
+            Person(split[0], split[1], split[2] if len(split) > 2 else None)
+            for split in include_splits
+        ]
     except IndexError:
         error(
             message=(f"Error reading the file '{include_file}'."),
-            suggestion="Each line should have a comma that separates the name of the person from their email.",
+            suggestion="Each line should have commas that separates the name of the person, their email, and (optionally) their team.",
         )
 
     if not include_people:
         error(
             message=f"No participants found in '{include_file}'.",
-            suggestion="Please make sure the file is not empty and has the correct format: One person per line, with a comma separating their name from their email.",
+            suggestion="Please make sure the file is not empty and has the correct format: One person per line, with commas separating their name, email, and (optionally) their team.",
         )
 
     exclude_file_obj = Path(exclude_file)
@@ -156,7 +169,7 @@ def determine_participants(
     except IndexError:
         error(
             message=(f"Error reading the file '{exclude_file}'."),
-            suggestion="Each line should have a comma that separates the name of the person from their email.",
+            suggestion="Each line should have commas that separate the name of the person, their email, and (optionally) their team.",
         )
 
     if args_excluded_emails is None:
@@ -172,14 +185,6 @@ def determine_participants(
             participants.append(person)
 
     return participants
-
-
-def get_name_from_email(email: str, participants: list[Person]):
-    for p in participants:
-        if p.email == email:
-            return p.name
-    msg = f"Email {email} not found in participants"
-    raise ValueError(msg)
 
 
 def parse_args():
@@ -289,7 +294,7 @@ if __name__ == "__main__":
 
     for _ in tqdm(range(n_attempts)):
         trial_permutation = randomise(
-            [p.email for p in participants],
+            list(participants),
             algorithm="full_random",
             group_size=group_size,
         )
@@ -307,7 +312,6 @@ if __name__ == "__main__":
             best_similarity = trial_similarity
             best_perm = trial_permutation
     print()
-
     # Choose the best permutation
     if len(perfect_perms) == 0:
         if args.allow_imperfect:
@@ -352,9 +356,9 @@ if __name__ == "__main__":
     for i, group in enumerate(permutation.groups, start=1):
         email_text += (
             f"Group {i}:"
-            f" <b>{get_name_from_email(group.leader, participants)}</b>"
+            f" <b>{group.leader!s}</b>"
             f" | "
-            f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}<br />"
+            f"{' | '.join(str(o) for o in group.others)}<br />"
         )
     email_text += FOOTER
 
