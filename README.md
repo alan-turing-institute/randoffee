@@ -6,20 +6,19 @@ Library to handle REG random coffees.
 
 ## Workflow for generating random coffees
 
-**TODO**: describe the algorithm.
-Until I bother writing this up, you can find it in the comments scattered around `run.py`.
+(_Note_: This assumes you are not actively developing the codebase.
+If you are, skip ahead.)
 
-1. Install the library.
+1. Install the executable.
+   If you don't have `pipx`, you can do `brew install pipx` on macOS, or [follow the instructions for your system](https://github.com/pypa/pipx).
 
-       git clone git@github.com:alan-turing-institute/randoffee.git
-       cd randoffee
-       python -m pip install -e .
+       pipx install git+https://github.com/alan-turing-institute/randoffee.git
 
 2. `cd` to the `Coffee` folder in the REG SharePoint.
 
 3. Run
 
-       python -m randoffee.run
+       randoffee
 
 4. The script will print the groupings, some statistics about them, and ask you whether these are your final groupings.
 
@@ -36,6 +35,29 @@ Until I bother writing this up, you can find it in the comments scattered around
 6. Change the random topics in the email to anything you like.
 
 7. Send the email to the list of email addresses the script gives you.
+
+-------
+
+## Developing
+
+The usage is the same as above, but when setting up the codebase you probably want to:
+
+1. Clone the repository:
+
+       git clone git@github.com:alan-turing-institute/randoffee.git
+
+2. Set up a virtual environment:
+
+       cd randoffee
+       python -m venv venv
+       source venv/bin/activate
+
+3. Install in editable mode:
+
+       pipx install --editable .
+
+You should then have access to `randoffee` as a command as long as you are in the virtual environment.
+When run, it will use the code in the local repository.
 
 -------
 

@@ -240,7 +240,7 @@ def copy_html_to_clipboard(html_text: str) -> None:
         raise FileNotFoundError(msg) from None
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     prev_dir = "previous"
     group_size = 4
@@ -399,3 +399,7 @@ if __name__ == "__main__":
             f"Permutation not saved. (You can still find it at"
             f" '{save_perm_file}' should you need it.)"
         )
+
+
+if __name__ == "__main__":
+    main()
