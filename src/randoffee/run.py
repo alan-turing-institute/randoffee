@@ -23,6 +23,11 @@ This script requires the following files to be present in the working directory
 
         python randomise.py -e flast@turing.ac.uk
 
+3. `template`
+   A text file containing the email template. The template should contain a
+   line with the text `{GROUPS}`, which indicates where the groups will be
+   inserted.
+
 The script will generate random groups of 4 or 5 people, along with the
 complete text for an email. This text is automatically copied to the clipboard
 in RTF format, and can then be pasted into the desktop version of Outlook (or
@@ -73,41 +78,6 @@ def weighted_similarity(perm, most_recent_perms):
         weight * perm.similarity_to(p).per_person_score
         for weight, p in zip(weights, most_recent_perms)
     ) / sum(weights)
-
-
-HEADER = "<br />".join(
-    """
-Hello REG and ARC,
-
-Here are the groups for our next randomised coffee chats.
-""".split(
-        "\n"
-    )
-)
-
-FOOTER = "<br />".join(
-    """
-The first person in the group is responsible for making sure the meeting gets
-scheduled, but anyone in the group is free to take initiative to schedule it.
-Please schedule a 30 minute call, and feel free to fill it with chatter about
-absolutely anything, including, but not limited to, the following topics:
-
- - Birds in classic literature
- - Which type of cheese the Moon is made of
- - Renters' rights in the United Kingdom
- - The most unusual pasta shape you've seen
-
-The opt-out form is still here: https://forms.office.com/e/mN3hHns3Qf and you
-are welcome to let one of us know if you'd like to take a temporary break (zero
-judgment). Just drop us a Slack message or an email.
-
-Kind regards,
-Jon and Markus
-
-""".split(
-        "\n"
-    )
-)
 
 
 class Person:
@@ -347,16 +317,20 @@ def main():
     print()
 
     # Generate email text
-    email_text = HEADER
-    email_text += "<br />"
+    groups_text = ""
     for i, group in enumerate(permutation.groups, start=1):
-        email_text += (
+        if i > 1:
+            groups_text += "\n"
+        groups_text += (
             f"Group {i}:"
             f" <b>{get_name_from_email(group.leader, participants)}</b>"
             f" | "
-            f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}<br />"
+            f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}"
         )
-    email_text += FOOTER
+    with Path("template").open() as f:
+        email_template = f.read()
+    email_text = email_template.format(GROUPS=groups_text)
+    email_text = email_text.replace("\n", "<br />")
 
     # Copy email text to clipboard
     copy_html_to_clipboard(email_text)
