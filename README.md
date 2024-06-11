@@ -52,9 +52,9 @@ The usage is the same as above, but when setting up the codebase you probably wa
        python -m venv venv
        source venv/bin/activate
 
-3. Install in editable mode:
+3. Install the library in editable mode:
 
-       pipx install --editable .
+       pip install --editable .
 
 You should then have access to `randoffee` as a command as long as you are in the virtual environment.
 When run, it will use the code in the local repository.
