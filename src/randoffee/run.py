@@ -154,7 +154,7 @@ def get_name_from_email(email: str, participants: list[Person]):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate random groups for coffee chats"
+        prog="randoffee", description="Generate random groups for coffee chats"
     )
     parser.add_argument(
         "-e",
@@ -163,12 +163,23 @@ def parse_args():
         default=[],
         help="Emails to exclude (can be space or semicolon separated)",
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "-n",
         "--number",
         default=100000,
         help="Number of random permutations to generate (default: 100000)",
         type=int,
+    )
+    group.add_argument(
+        "-t",
+        "--target",
+        help=(
+            "Maximum tolerable weighted similarity score to the previous four"
+            " permutations. You can use either this flag or -n, but not"
+            " both; the default is to use -n."
+        ),
+        type=float,
     )
     parser.add_argument(
         "--allow-imperfect",
@@ -210,46 +221,27 @@ def copy_html_to_clipboard(html_text: str) -> None:
         raise FileNotFoundError(msg) from None
 
 
-def main():
-    args = parse_args()
-    prev_dir = "previous"
-    group_size = 4
+def choose_best_of(
+    n_attempts, allow_imperfect, most_recent_perms, participants, group_size
+):
+    """
+    1. Perform full randomisation `n_attempts` times.
+    2. Filter for those which have 0 similarity to the immediately
+       preceding permutation (i.e. no repeated people from the last
+       round).
+    3. Pick the one with the lowest weighted similarity to the preceding
+       4 permutations. The weighted similarity is defined as
 
-    participants = determine_participants(
-        include_file="include",
-        exclude_file="exclude",
-        args_excluded_emails=args.exclude,
-    )
-    if not participants:
-        announce(
-            "There are no participants in this round, and thus nothing to do. Are you perhaps excluding everyone?",
-        )
-        sys.exit(0)
+          weighted_similarity = (  1.0 * similarity_1
+                                 + 0.8 * similarity_2
+                                 + 0.5 * similarity_3
+                                 + 0.2 * similarity_4) / 2.5
 
-    most_recent_perms = get_all_previous_permutations(prev_dir)
-    if not most_recent_perms:
-        announce(
-            f"Could not find any previous permutations in '{prev_dir}'. If this is the first time you're running randoffee, that's fine. Otherwise make sure '{prev_dir}' is in the current working directory."
-        )
-        print()
-
-    # 1. Perform full randomisation args.number times.
-    # 2. Filter for those which have 0 similarity to the immediately
-    #    preceding permutation (i.e. no repeated people from the last
-    #    round).
-    # 3. Pick the one with the lowest weighted similarity to the preceding
-    #    4 permutations. The weighted similarity is defined as
-    #
-    #       weighted_similarity = (  1.0 * similarity_1
-    #                              + 0.8 * similarity_2
-    #                              + 0.5 * similarity_3
-    #                              + 0.2 * similarity_4) / 2.5
-    #
-    #    where similarity_1 is the similarity to the most recent permutation,
-    #    similarity_2 is the similarity to the second most recent, etc.
-    #    Note that by virtue of the filtering in step 2, similarity_1 will
-    #    always be 0.
-    n_attempts = args.number
+       where similarity_1 is the similarity to the most recent permutation,
+       similarity_2 is the similarity to the second most recent, etc.
+       Note that by virtue of the filtering in step 2, similarity_1 will
+       always be 0.
+    """
     perfect_perms = []
     best_perm = None
     best_similarity = inf
@@ -280,7 +272,7 @@ def main():
 
     # Choose the best permutation
     if len(perfect_perms) == 0:
-        if args.allow_imperfect:
+        if allow_imperfect:
             # OK to not have a perfect permutation, just choose the best one
             permutation = best_perm
         else:
@@ -300,6 +292,84 @@ def main():
         # and select the lowest from these
         perfect_perms.sort(key=lambda p: weighted_similarity(p, most_recent_perms))
         permutation = perfect_perms[0]
+
+    return permutation
+
+
+def randomise_until_target(
+    target_similarity, allow_imperfect, most_recent_perms, participants, group_size
+):
+    """
+    Generate permutations until one below the target similarity score is found.
+    """
+    count = 0
+    best_similarity = inf
+    while True:
+        count += 1
+        permutation = randomise(
+            [p.email for p in participants],
+            algorithm="full_random",
+            group_size=group_size,
+        )
+        # Similarity to most recent permutation
+        similarity_latest = permutation.similarity_to(
+            most_recent_perms[0]
+        ).per_person_score
+        # Weighted similarity to all previous permutations
+        similarity_all = weighted_similarity(permutation, most_recent_perms)
+
+        if similarity_all < best_similarity:
+            best_similarity = similarity_all
+
+        if count % 1000 == 0:
+            print(f"Attempt {count}: best similarity so far = {best_similarity}")
+
+        if (
+            allow_imperfect or similarity_latest == 0
+        ) and similarity_all < target_similarity:
+            return permutation
+
+
+def main():
+    args = parse_args()
+    prev_dir = "previous"
+    group_size = 4
+
+    participants = determine_participants(
+        include_file="include",
+        exclude_file="exclude",
+        args_excluded_emails=args.exclude,
+    )
+    if not participants:
+        announce(
+            "There are no participants in this round, and thus nothing to do. Are you perhaps excluding everyone?",
+        )
+        sys.exit(0)
+
+    most_recent_perms = get_all_previous_permutations(prev_dir)
+    if not most_recent_perms:
+        announce(
+            f"Could not find any previous permutations in '{prev_dir}'. If this is the first time you're running randoffee, that's fine. Otherwise make sure '{prev_dir}' is in the current working directory."
+        )
+        print()
+
+    # Generate the permutation
+    if args.target is not None:
+        permutation = randomise_until_target(
+            args.target,
+            args.allow_imperfect,
+            most_recent_perms,
+            participants,
+            group_size,
+        )
+    else:
+        permutation = choose_best_of(
+            args.number,
+            args.allow_imperfect,
+            most_recent_perms,
+            participants,
+            group_size,
+        )
 
     # Print the permutation and some stats
     permutation = adjust_leaders(permutation)
