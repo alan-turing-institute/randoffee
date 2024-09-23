@@ -5,7 +5,7 @@ Script to generate a new permutation for coffee chats. To use, first install
 the randoffee library. Then `cd` to the `Coffee` folder in the REG SharePoint,
 and run:
 
-    python -m randoffee.run
+    randoffee
 
 This script requires the following files to be present in the working directory
 (the `Coffee` folder should already have all of these).
@@ -21,7 +21,7 @@ This script requires the following files to be present in the working directory
    For a more temporary exclusion (e.g. for people on leave), you can pass the
    email address as an argument to the script, e.g.
 
-        python randomise.py -e flast@turing.ac.uk
+        randoffee -e flast@turing.ac.uk
 
 3. `template`
    A text file containing the email template. The template should contain a
@@ -32,6 +32,12 @@ The script will generate random groups of 4 or 5 people, along with the
 complete text for an email. This text is automatically copied to the clipboard
 in RTF format, and can then be pasted into the desktop version of Outlook (or
 the macOS Mail.app).
+
+Alternatively, this also provides a way of printing the RTF email for a set of
+groups which have already been generated. To do this, you need to be in the
+same folder as before, and run:
+
+    randoffee-load FILENAME.json
 """
 from __future__ import annotations
 
@@ -46,6 +52,7 @@ from tqdm import tqdm
 
 from .file import get_all_previous_permutations
 from .leader import adjust_leaders
+from .main import Permutation
 from .randomise import randomise
 
 
@@ -144,6 +151,36 @@ def determine_participants(
     return participants
 
 
+def get_persons_from_emails(
+    emails: list[str], include_file, exclude_file
+) -> set[Person]:
+    """Returns all Persons corresponding to the list of emails. Searches in
+    both the include and exclude files."""
+    potential_participants = set()
+
+    for file in [include_file, exclude_file]:
+        file_obj = Path(file)
+
+        if not file_obj.exists():
+            error(
+                message=f"File '{file}' not found.",
+                suggestion="Please make sure the file is in the current working directory. It should have a list of all the people participating in the random coffees, one per line, with a comma separating their name from their email.",
+            )
+        with file_obj.open(encoding="UTF-8") as f:
+            lines = f.read().splitlines()
+        splits = [line.split(",") for line in lines]
+        try:
+            people = {Person(split[0], split[1]) for split in splits}
+            potential_participants = potential_participants | people
+        except IndexError:
+            error(
+                message=(f"Error reading the file '{file}'."),
+                suggestion="Each line should have a comma that separates the name of the person from their email.",
+            )
+
+    return {p for p in potential_participants if p.email in emails}
+
+
 def get_name_from_email(email: str, participants: list[Person]):
     for p in participants:
         if p.email == email:
@@ -152,7 +189,7 @@ def get_name_from_email(email: str, participants: list[Person]):
     raise ValueError(msg)
 
 
-def parse_args():
+def parse_main_args():
     parser = argparse.ArgumentParser(
         prog="randoffee", description="Generate random groups for coffee chats"
     )
@@ -330,8 +367,69 @@ def randomise_until_target(
             return permutation
 
 
+def parse_load_args():
+    parser = argparse.ArgumentParser(
+        prog="randoffee-load", description="Generate email text from a JSON file."
+    )
+    # Just one positional argument
+    parser.add_argument(
+        "filename",
+        metavar="FILENAME",
+        type=str,
+        help="JSON file containing the groupings.",
+    )
+    return parser.parse_args()
+
+
+def load():
+    args = parse_load_args()
+
+    # Print the permutation and some stats
+    permutation = Permutation.from_json_file(args.filename)
+    announce("Loaded permutation")
+    print(permutation)
+    print()
+
+    # Determine participants from permutation
+    participants = get_persons_from_emails(
+        emails=permutation.participants(),
+        include_file="include",
+        exclude_file="exclude",
+    )
+
+    # Generate email text
+    groups_text = ""
+    for i, group in enumerate(permutation.groups, start=1):
+        if i > 1:
+            groups_text += "\n"
+        groups_text += (
+            f"Group {i}:"
+            f" <b>{get_name_from_email(group.leader, participants)}</b>"
+            f" | "
+            f"{' | '.join(get_name_from_email(o, participants) for o in group.others)}"
+        )
+    with Path("template").open() as f:
+        email_template = f.read()
+    email_text = email_template.format(GROUPS=groups_text)
+    email_text = email_text.replace("\n", "<br />")
+
+    # Copy email text to clipboard
+    copy_html_to_clipboard(email_text)
+
+    # Print emails to send to
+    announce(
+        "The email text has been copied to your system clipboard."
+        " You should be able to paste it into any desktop email"
+        " client (browser doesn't work)."
+    )
+    print()
+    announce("Send the email to the following people:")
+    print("; ".join(sorted(p.email for p in participants)))
+    print()
+
+
 def main():
-    args = parse_args()
+    args = parse_main_args()
     prev_dir = "previous"
     group_size = 4
 
