@@ -66,6 +66,7 @@ testpaths = [
 
 [project.scripts]
 randoffee = "randoffee.run:main"
+randoffee-load = "randoffee.run:load"
 
 
 [tool.coverage]
