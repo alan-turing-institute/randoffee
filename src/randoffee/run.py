@@ -107,13 +107,21 @@ def determine_participants(
         )
     with include_file_obj.open(encoding="UTF-8") as f:
         lines = f.read().splitlines()
-    include_splits = [line.split(",") for line in lines]
     try:
+        # Check that include file has the right format
+        assert all(len(line.split(",")) == 2 for line in lines)
+        # Add people to include
+        include_splits = [line.split(",") for line in lines]
         include_people = [Person(split[0], split[1]) for split in include_splits]
     except IndexError:
         error(
             message=(f"Error reading the file '{include_file}'."),
             suggestion="Each line should have a comma that separates the name of the person from their email.",
+        )
+    except AssertionError:
+        error(
+            message=(f"Error reading the file '{include_file}'."),
+            suggestion="Not all lines had two columns. Check for stray or missing commas.",
         )
 
     if not include_people:
@@ -129,12 +137,21 @@ def determine_participants(
     else:
         lines = []
     try:
+        # Check that exclude file has the right format
+        assert all(len(line.split(",")) == 2 for line in lines)
+        # Assume that the email is the second column and add them to exclude
         exclude_file_emails = {line.split(",")[1] for line in lines}
     except IndexError:
         error(
             message=(f"Error reading the file '{exclude_file}'."),
             suggestion="Each line should have a comma that separates the name of the person from their email.",
         )
+    except AssertionError:
+        error(
+            message=(f"Error reading the file '{exclude_file}'."),
+            suggestion="Not all lines had two columns. Check for stray or missing commas.",
+        )
+
 
     if args_excluded_emails is None:
         args_excluded_emails = set()
